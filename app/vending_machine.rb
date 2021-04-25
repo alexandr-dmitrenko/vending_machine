@@ -1,29 +1,29 @@
-require_relative 'product_stock'
-require_relative 'coin_keeper'
-require 'pry'
+require_relative 'inventory'
+require_relative 'order_processing'
 
 class VendingMachine
-  # Отображать только доступные товары
-  def self.vend(code, amount)
-    stock = ProductStock.new(code)
-    product = stock.find_product
+  def initialize
+    @order = OrderProcessing.new
+    @stock = Inventory.new
+  end
 
-    coin_keeper = CoinKeeper.new
-    coin_keeper.insert_coin(amount)
+  def vend(code, amount)
+    product = @stock.find_product(code)
+    @order.insert_coin(amount)
 
-    if coin_keeper.balance < product[:price]
-      puts "There are not enough funds in the account. Please deposit #{product[:price] - @balance}"
+    return @order.calc_missing_amount(product_price) if @order.balance < product[:price]
+    return @stock.send(product[:code]) if @order.balance == product[:price]
+
+    if @order.balance > product[:price]
+      extra_amount = @order.balance - product[:price]
+      @order.change(extra_amount)
+      @stock.send(product[:code])
     end
-
-    return stock.product_withdrawal if coin_keeper.balance == product[:price]
-
-    if coin_keeper.balance > product[:price]
-      change = coin_keeper.return_change(product[:price])
-
-      stock.product_withdrawal
-      change
-    end
+  rescue StandardError => e
+    p e.message
+    @order.refund
   end
 end
 
-VendingMachine.vend(1, 5)
+vending_machine = VendingMachine.new
+vending_machine.vend(1, 5)
